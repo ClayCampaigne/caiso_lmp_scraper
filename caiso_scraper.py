@@ -163,8 +163,9 @@ def scrape_daterange(node='SLAP_PGEB-APND',  # 'SLAP_PGEB-APND', 'PGEB-APND'
             try:
                 result_srs = pd.concat(results_dict.values()).sort_index()
                 result_srs.to_csv(f'./LMP_{node}_{market}_{startdate.date()}_{enddate.date()}.csv', header=True)
-            except:
+            except Exception as e:
                 print("could not concatenate results, presumably because there are none")
+                print(f"exception is: {e}")
         # TODO: add a validation step with an expected DatetimeIndex of freq = result_freq
     return result_srs
 
@@ -176,13 +177,15 @@ def main(args):
     market = args.market
     tz_in = args.tz_in
     tz_query = args.tz_query
+    store_path = args.store_path
 
     result = scrape_daterange(node=node,  # 'SLAP_PGEB-APND',
-                              startdate=startdate, # datetime(2017, 1, 1),
-                              enddate=enddate, # datetime(2017, 1, 16),
-                              market=market, # 'RT15',
+                              startdate=startdate,  # datetime(2017, 1, 1),
+                              enddate=enddate,  # datetime(2017, 1, 16),
+                              market=market,  # 'RT15',
                               tz_in=tz_in,
-                              tz_query=tz_query)
+                              tz_query=tz_query,
+                              store_path=store_path)
 
 
 if __name__ == '__main__':
