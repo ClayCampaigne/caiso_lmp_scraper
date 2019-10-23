@@ -35,7 +35,7 @@ def parse_args():
 
 
 def format_time(dtime, tz_in='US/Pacific', tz_out='US/Pacific'):
-    """format a datetime.datetime (tz-naive, implicitly US/Pacific) for a CAISO OASIS API query"""
+    """format a datetime.datetime (in as tz-naive, implicitly tz_in, out as tz_out) for a CAISO OASIS API query"""
     # Sometimes it seems that local time works, and other times UTC works. Could be Descartes' evil genius messing w me again
     # perhaps because for some markets we are restricted to be within a single day
     dtime = timezone(tz_in).localize(dtime)
