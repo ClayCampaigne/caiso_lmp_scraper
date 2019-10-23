@@ -13,8 +13,8 @@ from argparse import ArgumentParser
 
 def parse_args():
     parser = ArgumentParser()
-    parser.add_argument('--node', type=str)
-    parser.add_argument('-m', '--market', type = str)
+    parser.add_argument('--node', type=str, help = "a CAISO node name")
+    parser.add_argument('-m', '--market', type = str, help = "string: RT5, RT15, or DA")
     parser.add_argument('-s', '--startdate', type = str, help = "a string parsable by pandas as a datetime")
     parser.add_argument('-e', '--enddate', type = str, help = "a string parsable by pandas as a datetime")
     parser.add_argument('-p', '--store_path', type = str, default = os.path.dirname(__file__),
@@ -189,5 +189,8 @@ def main(args):
 
 
 if __name__ == '__main__':
+    # example command line params:
+    # --node "DLAP_SCE-APND" --startdate "2017-03-29" --enddate "2019-10-20" --market "RT5"
     args = parse_args()
     main(args)
+    
