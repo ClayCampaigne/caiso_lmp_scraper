@@ -148,7 +148,7 @@ def scrape_daterange(node='SLAP_PGEB-APND',  # 'SLAP_PGEB-APND', 'PGEB-APND'
                 df2 = df.set_index('INTERVALSTARTTIME_GMT', drop=True)[['LMP_TYPE', pricecol]].sort_index()
                 # get the series
                 srs = df2[df2['LMP_TYPE'] == 'LMP'][pricecol]
-                results_dict[chunk_starts[i]] = srs  # I know something will go wrong here
+                results_dict[chunk_starts[i]] = srs
                 assert not srs.isna().any()
                 success_srs[ts] = True
             except Exception as e:
@@ -165,7 +165,7 @@ def scrape_daterange(node='SLAP_PGEB-APND',  # 'SLAP_PGEB-APND', 'PGEB-APND'
                 result_srs.to_csv(f'./LMP_{node}_{market}_{startdate.date()}_{enddate.date()}.csv', header=True)
             except:
                 print("could not concatenate results, presumably because there are none")
-
+        # TODO: add a validation step with an expected DatetimeIndex of freq = result_freq
     return result_srs
 
 
