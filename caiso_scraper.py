@@ -120,18 +120,18 @@ def scrape_daterange(node='SLAP_PGEB-APND',  # 'SLAP_PGEB-APND', 'PGEB-APND'
     assert market in ("RT5", "RT15", "DA")
     chunk_period = {'RT5': 1, 'RT15': 15, 'DA': 30}[market]  # different markets have different allowable query sizes
     chunk_starts = pd.date_range(start=startdate, end=enddate, freq=f'{chunk_period}D')
-    print(f"chunk_starts = {chunk_starts}")
-    success_srs = pd.Series(index=chunk_starts, data=False)  # a series of indicators for successful retreieval
+    print(f"Query range starts = {chunk_starts}")
     attempt_srs = pd.Series(index=chunk_starts, data=0)
+    completion_srs = pd.Series(index=chunk_starts, data=False)
     result_freq = {'RT5': 5, 'RT15': 15, 'DA': 60}[market]  # will use this for validating results
     result_srs = pd.Series()
     results_dict = {}
 
     i = 0
-    while ((0 <= attempt_srs) & (attempt_srs < max_n_attempts)).any():
+    while not completion_srs.all():
         # >= 0 means we have not succeeded, < max_n_attempts means we shouldn't give up if not
         # if there are any that we have not succeeded with or tried enough times, we trudge on
-        if not success_srs[i]:
+        if not attempt_srs[i] < 0:
             # we do not have the data for this range
             # print(f"i, i+1 = {i}, {i + 1}")
             # print(f"chunk_starts[i]={chunk_starts[i]}")
@@ -158,7 +158,6 @@ def scrape_daterange(node='SLAP_PGEB-APND',  # 'SLAP_PGEB-APND', 'PGEB-APND'
                 srs = df2[df2['LMP_TYPE'] == 'LMP'][pricecol]
                 results_dict[chunk_starts[i]] = srs
                 assert not srs.isna().any()
-                success_srs[ts] = True
                 attempt_srs[ts] = -1  # -1 means we have succeeded
                 print(f'Success! (it would seem)')
             except Exception as e:
@@ -170,7 +169,7 @@ def scrape_daterange(node='SLAP_PGEB-APND',  # 'SLAP_PGEB-APND', 'PGEB-APND'
         else:  # start over to collect missing data
             i = 0
         time.sleep(5)  # don't want the OASIS API to lock us out
-        if cache_continuously or success_srs.all():
+        if cache_continuously or completion_srs.all():
             # very inefficient to keep redoing the concatenation from scratch, but OTOH if we don't cache continuously
             # then it is *more* efficient to do it this way.
             try:
@@ -180,6 +179,8 @@ def scrape_daterange(node='SLAP_PGEB-APND',  # 'SLAP_PGEB-APND', 'PGEB-APND'
                 print("could not concatenate results, presumably because there are none")
                 print(f"exception is: {e}")
         # TODO: add a validation step with an expected DatetimeIndex of freq = result_freq
+
+        completion_srs[ts] = (attempt_srs[ts] < 0 or attempt_srs[ts] >= max_n_attempts)
     return result_srs
 
 
