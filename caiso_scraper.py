@@ -13,23 +13,24 @@ from argparse import ArgumentParser
 
 def parse_args():
     parser = ArgumentParser()
-    parser.add_argument('--node', type=str, help = "a CAISO node name")
+    parser.add_argument('--node', type = str, help = "a CAISO node name")
     parser.add_argument('-m', '--market', type = str, help = "string: RT5, RT15, or DA")
     parser.add_argument('-s', '--startdate', type = str, help = "a string parsable by pandas as a datetime")
     parser.add_argument('-e', '--enddate', type = str, help = "a string parsable by pandas as a datetime")
     parser.add_argument('-p', '--store_path', type = str, default = os.path.dirname(__file__),
                         help="a string representing the directory in which we will create the resulting data file")
-    parser.add_argument('--tz_in', type = str, default = 'US/Pacific', help='the timezone of your input args')
+    parser.add_argument('--tz_in', type = str, default = 'US/Pacific', help = 'the timezone of your input args')
     parser.add_argument('--tz_query', type = str, default = 'US/Pacific',
                         help = 'the timezone of your desired query params')
-    parser.add_argument('--max_n_attempts', type = int, default = 5, help = 'how many times we will try to run a query before giving up')
+    parser.add_argument('--max_n_attempts', type = int, default = 5,
+                        help = 'how many times we will try to run a query before giving up')
     # by default save the results next to the current file
     args = parser.parse_args()
 
     assert args.market in ('RT5', 'RT15', 'DA')
     # process / validate datetime arguments
-    startdate_pd = pd.to_datetime(args.startdate).tz_localize(args.tz_in)#.tz_convert('UTC')
-    enddate_pd = pd.to_datetime(args.enddate).tz_localize(args.tz_in)#.tz_convert('UTC')
+    startdate_pd = pd.to_datetime(args.startdate).tz_localize(args.tz_in)
+    enddate_pd = pd.to_datetime(args.enddate).tz_localize(args.tz_in)
     args.startdate = datetime(year=startdate_pd.year, month=startdate_pd.month, day=startdate_pd.day)
     args.enddate = datetime(year=enddate_pd.year, month=enddate_pd.month, day=enddate_pd.day)
     return args
@@ -37,10 +38,10 @@ def parse_args():
 
 def format_time(dtime, tz_in='US/Pacific', tz_out='US/Pacific'):
     """format a datetime.datetime (in as tz-naive, implicitly tz_in, out as tz_out) for a CAISO OASIS API query"""
-    # Sometimes it seems that local time works, and other times UTC works. Could be Descartes' evil genius messing w me again
-    # perhaps because for some markets we are restricted to be within a single day
+    # Sometimes it seems that local time works, and other times UTC works. Could be Descartes' evil genius messing w me
+    # again, or perhaps because for some markets we are restricted to be within a single day
     dtime = timezone(tz_in).localize(dtime)
-    if tz_out != tz_in: # convert to desired query timezone if for some reason you care for them to differ
+    if tz_out != tz_in:  # convert to desired query timezone if for some reason you care for them to differ
         dtime = dtime.astimezone(timezone(tz_out))
     return dtime.strftime("%Y%m%dT%H:%M%z")
 
@@ -71,7 +72,8 @@ def get_query_params(node='SLAP_PGEB-APND',
         params['market_run_id'] = 'RTM'
         if enddate - startdate > pd.Timedelta(days=1):
             print(
-                "Watch out! real-time market queries may be (?) restricted to a single 24 hour period, and yours is not!")
+                "Watch out! real-time market queries may be (?) "
+                "restricted to a single 24 hour period, and yours is not!")
     elif market == 'RT15':
         params['queryname'] = 'PRC_RTPD_LMP'
         params['market_run_id'] = 'RTPD'
@@ -118,6 +120,8 @@ def scrape_daterange(node='SLAP_PGEB-APND',  # 'SLAP_PGEB-APND', 'PGEB-APND'
     after each block is successfully retrieved or we make max_n_attempts for it, we stop
     """
     assert market in ("RT5", "RT15", "DA")
+    if store_path is None:
+        store_path = '.'
     chunk_period = {'RT5': 1, 'RT15': 15, 'DA': 30}[market]  # different markets have different allowable query sizes
     chunk_starts = pd.date_range(start=startdate, end=enddate, freq=f'{chunk_period}D')
     print(f"Query range starts = {chunk_starts}")
@@ -155,15 +159,14 @@ def scrape_daterange(node='SLAP_PGEB-APND',  # 'SLAP_PGEB-APND', 'PGEB-APND'
                 # get the series
                 # in this application I don't care about the marginal cost of congestion, losses, etc,
                 # so I only take the total LMP, not the components
-                srs = df2[df2['LMP_TYPE'] == 'LMP'][pricecol]
-                results_dict[chunk_starts[i]] = srs
-                assert not srs.isna().any()
+                result_srs = df2[df2['LMP_TYPE'] == 'LMP'][pricecol]
+                results_dict[chunk_starts[i]] = result_srs
+                assert not result_srs.isna().any()
                 attempt_srs[ts] = -1  # -1 means we have succeeded
                 print(f'Success! (it would seem)')
             except Exception as e:
                 print(f'Failed for startdate {ts:%Y-%m-%d} with exception {e}')
                 attempt_srs[ts] += 1  # mark a consecutive failed attempt for this chunk
-                # success_srs[ts] = False (remains False) in this case
         if i < len(chunk_starts) - 1:
             i += 1
         else:  # start over to collect missing data
@@ -174,12 +177,14 @@ def scrape_daterange(node='SLAP_PGEB-APND',  # 'SLAP_PGEB-APND', 'PGEB-APND'
             # then it is *more* efficient to do it this way.
             try:
                 result_srs = pd.concat(results_dict.values()).sort_index()
-                result_srs.to_csv(f'./LMP_{node}_{market}_{startdate.date()}_{enddate.date()}.csv', header=True)
+                fpath = os.path.join(store_path, f'./LMP_{node}_{market}_{startdate.date()}_{enddate.date()}.csv')
+                result_srs.to_csv(fpath, header=True)
             except Exception as e:
                 print("could not concatenate results, presumably because there are none")
                 print(f"exception is: {e}")
         # TODO: add a validation step with an expected DatetimeIndex of freq = result_freq
 
+        # completion criterion for the chunk is that we have succeeded or tried enough times:
         completion_srs[ts] = (attempt_srs[ts] < 0 or attempt_srs[ts] >= max_n_attempts)
     return result_srs
 
