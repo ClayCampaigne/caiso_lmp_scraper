@@ -135,7 +135,7 @@ def scrape_daterange(node='SLAP_PGEB-APND',  # 'SLAP_PGEB-APND', 'PGEB-APND'
     while not completion_srs.all():
         # >= 0 means we have not succeeded, < max_n_attempts means we shouldn't give up if not
         # if there are any that we have not succeeded with or tried enough times, we trudge on
-        if not attempt_srs[i] < 0:
+        if not completion_srs[i]:
             # we do not have the data for this range
             # print(f"i, i+1 = {i}, {i + 1}")
             # print(f"chunk_starts[i]={chunk_starts[i]}")
@@ -174,7 +174,8 @@ def scrape_daterange(node='SLAP_PGEB-APND',  # 'SLAP_PGEB-APND', 'PGEB-APND'
         time.sleep(5)  # don't want the OASIS API to lock us out
         if cache_continuously or completion_srs.all():
             # very inefficient to keep redoing the concatenation from scratch, but OTOH if we don't cache continuously
-            # then it is *more* efficient to do it this way.
+            # then it is *more* efficient to do it this way. Anyway waiting between queries to avoid getting locked out
+            # probably takes the majority of the time
             try:
                 result_srs = pd.concat(results_dict.values()).sort_index()
                 fpath = os.path.join(store_path, f'./LMP_{node}_{market}_{startdate.date()}_{enddate.date()}.csv')
