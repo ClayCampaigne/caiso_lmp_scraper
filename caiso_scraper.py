@@ -22,6 +22,7 @@ def parse_args():
     parser.add_argument('--tz_in', type = str, default = 'US/Pacific', help='the timezone of your input args')
     parser.add_argument('--tz_query', type = str, default = 'US/Pacific',
                         help = 'the timezone of your desired query params')
+    parser.add_argument('--max_n_attempts', type = int, default = 5, help = 'how many times we will try to run a query before giving up')
     # by default save the results next to the current file
     args = parser.parse_args()
 
@@ -109,22 +110,27 @@ def scrape_daterange(node='SLAP_PGEB-APND',  # 'SLAP_PGEB-APND', 'PGEB-APND'
                      tz_in='US/Pacific',
                      tz_query='UTC',
                      store_path=None,
-                     cache_continuously=True):
+                     cache_continuously=True,
+                     max_n_attempts = 5):
     """
     Breaks up a daterange into appropriate chunks and gets them.
-    cache_continuously=True is less efficient but will will always save the sorted result after each query
+    cache_continuously=True is less efficient but will will always save the sorted result after each query.
+    after each block is successfully retrieved or we make max_n_attempts for it, we stop
     """
     assert market in ("RT5", "RT15", "DA")
     chunk_period = {'RT5': 1, 'RT15': 15, 'DA': 30}[market]  # different markets have different allowable query sizes
     chunk_starts = pd.date_range(start=startdate, end=enddate, freq=f'{chunk_period}D')
     print(f"chunk_starts = {chunk_starts}")
     success_srs = pd.Series(index=chunk_starts, data=False)  # a series of indicators for successful retreieval
+    attempt_srs = pd.Series(index=chunk_starts, data=0)
     result_freq = {'RT5': 5, 'RT15': 15, 'DA': 60}[market]  # will use this for validating results
     result_srs = pd.Series()
-    results_dict = {}  #
+    results_dict = {}
 
     i = 0
-    while not success_srs.all():
+    while ((0 <= attempt_srs) & (attempt_srs < max_n_attempts)).any():
+        # >= 0 means we have not succeeded, < max_n_attempts means we shouldn't give up if not
+        # if there are any that we have not succeeded with or tried enough times, we trudge on
         if not success_srs[i]:
             # we do not have the data for this range
             # print(f"i, i+1 = {i}, {i + 1}")
@@ -135,7 +141,7 @@ def scrape_daterange(node='SLAP_PGEB-APND',  # 'SLAP_PGEB-APND', 'PGEB-APND'
                 te = datetime(chunk_starts[i + 1].year, chunk_starts[i + 1].month, chunk_starts[i + 1].day)
             else:
                 te = enddate
-            print(f"Querying (startdate, enddate) = {ts, te}")
+            print(f"Querying {ts:%Y-%m-%d} to {te:%Y-%m-%d}, attempt number {attempt_srs[ts]+1} of {max_n_attempts}")
             params = get_query_params(node=node,  # 'SLAP_PGEB-APND', 'PGEB-APND'
                                       startdate=ts,
                                       enddate=te,
@@ -153,8 +159,11 @@ def scrape_daterange(node='SLAP_PGEB-APND',  # 'SLAP_PGEB-APND', 'PGEB-APND'
                 results_dict[chunk_starts[i]] = srs
                 assert not srs.isna().any()
                 success_srs[ts] = True
+                attempt_srs[ts] = -1  # -1 means we have succeeded
+                print(f'Success! (it would seem)')
             except Exception as e:
-                print(f'Failed for startdate {ts} with exception {e}')
+                print(f'Failed for startdate {ts:%Y-%m-%d} with exception {e}')
+                attempt_srs[ts] += 1  # mark a consecutive failed attempt for this chunk
                 # success_srs[ts] = False (remains False) in this case
         if i < len(chunk_starts) - 1:
             i += 1
@@ -182,6 +191,7 @@ def main(args):
     tz_in = args.tz_in
     tz_query = args.tz_query
     store_path = args.store_path
+    max_n_attempts = args.max_n_attempts
 
     result = scrape_daterange(node=node,  # 'SLAP_PGEB-APND',
                               startdate=startdate,  # datetime(2017, 1, 1),
@@ -189,7 +199,8 @@ def main(args):
                               market=market,  # 'RT15',
                               tz_in=tz_in,
                               tz_query=tz_query,
-                              store_path=store_path)
+                              store_path=store_path,
+                              max_n_attempts=max_n_attempts)
 
 
 if __name__ == '__main__':
