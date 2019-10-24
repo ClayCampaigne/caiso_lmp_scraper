@@ -81,7 +81,7 @@ def get_query_params(node='SLAP_PGEB-APND',
 
 
 def scrape_singlezip(params):
-    """Make a single API URL requests"""
+    """Make a single API URL request using a parameter dictionary created e.g. by get_query_params"""
     r = requests.get('http://oasis.caiso.com/oasisapi/SingleZip', params=params)
     try:
         zf = zipfile.ZipFile(BytesIO(r.content))
@@ -143,10 +143,12 @@ def scrape_daterange(node='SLAP_PGEB-APND',  # 'SLAP_PGEB-APND', 'PGEB-APND'
                                       tz_in=tz_in,
                                       tz_out=tz_query)
             df = scrape_singlezip(params)
-            pricecol = {'DA': 'MW', 'RT5': 'MW', 'RT15': 'PRC'}[market]
+            pricecol = {'DA': 'MW', 'RT5': 'MW', 'RT15': 'PRC'}[market]  # name of the column containing our LMPs
             try:
                 df2 = df.set_index('INTERVALSTARTTIME_GMT', drop=True)[['LMP_TYPE', pricecol]].sort_index()
                 # get the series
+                # in this application I don't care about the marginal cost of congestion, losses, etc,
+                # so I only take the total LMP, not the components
                 srs = df2[df2['LMP_TYPE'] == 'LMP'][pricecol]
                 results_dict[chunk_starts[i]] = srs
                 assert not srs.isna().any()
@@ -160,6 +162,8 @@ def scrape_daterange(node='SLAP_PGEB-APND',  # 'SLAP_PGEB-APND', 'PGEB-APND'
             i = 0
         time.sleep(5)  # don't want the OASIS API to lock us out
         if cache_continuously or success_srs.all():
+            # very inefficient to keep redoing the concatenation from scratch, but OTOH if we don't cache continuously
+            # then it is *more* efficient to do it this way.
             try:
                 result_srs = pd.concat(results_dict.values()).sort_index()
                 result_srs.to_csv(f'./LMP_{node}_{market}_{startdate.date()}_{enddate.date()}.csv', header=True)
@@ -193,4 +197,3 @@ if __name__ == '__main__':
     # --node "DLAP_SCE-APND" --startdate "2017-03-29" --enddate "2019-10-20" --market "RT5"
     args = parse_args()
     main(args)
-    
