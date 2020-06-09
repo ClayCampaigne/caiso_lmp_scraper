@@ -180,6 +180,7 @@ def scrape_daterange(node='SLAP_PGEB-APND',  # 'SLAP_PGEB-APND', 'PGEB-APND'
                 result_srs = pd.concat(results_dict.values()).sort_index()
                 fpath = os.path.join(store_path, f'./LMP_{node}_{market}_{startdate.date()}_{enddate.date()}.csv')
                 result_srs.to_csv(fpath, header=True)
+                print(f"wrote file to {fpath}")
             except Exception as e:
                 print("could not concatenate results, presumably because there are none")
                 print(f"exception is: {e}")
@@ -213,5 +214,7 @@ def main(args):
 if __name__ == '__main__':
     # example command line params:
     # --node "DLAP_SCE-APND" --startdate "2017-03-29" --enddate "2019-10-20" --market "RT5"
+    # --node "DLAP_SCE-APND" --startdate "2019-06-01" --enddate "2020-06-08" --market "DA" --max_n_attempts 3 --tz_in "UTC" --tz_query "UTC"
+    # --node "TH_SP15_GEN_ONPEAK-APND" or "TH_SP15_GEN-APND"
     args = parse_args()
     main(args)
